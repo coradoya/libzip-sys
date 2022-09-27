@@ -20,14 +20,14 @@ pub struct ZipFile {
 
 #[cfg_attr(test, automock)]
 pub trait ZipFileTrait {
-    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error>>;
-    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error>>;
-    fn close(&self) -> Result<(), Box<dyn Error>>;
-    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error>>;
+    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
+    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
+    fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>>;
+    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error + Sync + Send>>;
 }
 
 impl ZipFileTrait for ZipFile {
-    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error>> {
+    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>> {
         let c_filename = CString::new(filename).unwrap();
         unsafe {
             let zip_source_err = null_mut();
@@ -50,7 +50,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error>> {
+    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>> {
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
@@ -72,7 +72,7 @@ impl ZipFileTrait for ZipFile {
         Ok(())
     }
 
-    fn close(&self) -> Result<(), Box<dyn Error>> {
+    fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>> {
         unsafe {
             let result = zip_close(self.file);
 
@@ -83,7 +83,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error>> {
+    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error + Sync + Send>> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
