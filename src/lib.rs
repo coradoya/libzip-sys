@@ -20,14 +20,14 @@ pub struct ZipFile {
 
 #[cfg_attr(test, automock)]
 pub trait ZipFileTrait {
-    fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Box<dyn Error>>;
-    fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Box<dyn Error>>;
-    fn close(zip_file: *mut zip_t) -> Result<(), Box<dyn Error>>;
+    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error>>;
+    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error>>;
+    fn close(&self) -> Result<(), Box<dyn Error>>;
     fn open(file: &Path) -> Result<ZipFile, Box<dyn Error>>;
 }
 
 impl ZipFileTrait for ZipFile {
-    fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Box<dyn Error>> {
+    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error>> {
         let c_filename = CString::new(filename).unwrap();
         unsafe {
             let zip_source_err = null_mut();
@@ -38,7 +38,7 @@ impl ZipFileTrait for ZipFile {
                 zip_source_err,
             );
             let zip_result = zip_file_add(
-                zip_file,
+                self.file,
                 c_filename.as_ptr(),
                 zip_source,
                 ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
@@ -50,7 +50,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Box<dyn Error>> {
+    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error>> {
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
@@ -58,7 +58,7 @@ impl ZipFileTrait for ZipFile {
             let zip_source_err = null_mut();
             let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
             let zip_result = zip_file_add(
-                zip_file,
+                self.file,
                 c_filename.as_ptr(),
                 zip_source,
                 ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
@@ -72,9 +72,9 @@ impl ZipFileTrait for ZipFile {
         Ok(())
     }
 
-    fn close(zip_file: *mut zip_t) -> Result<(), Box<dyn Error>> {
+    fn close(&self) -> Result<(), Box<dyn Error>> {
         unsafe {
-            let result = zip_close(zip_file);
+            let result = zip_close(self.file);
 
             match result {
                 0 => Ok(()),
