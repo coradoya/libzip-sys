@@ -7,20 +7,23 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 use std::error::Error;
 use std::ffi::CString;
 use std::os::raw::c_int;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 
 #[cfg(test)]
 use mockall::automock;
 
-pub struct ZipFile;
+pub struct ZipFile {
+    file: *mut zip_t,
+    filename: String
+}
 
 #[cfg_attr(test, automock)]
 pub trait ZipFileTrait {
     fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Box<dyn Error>>;
     fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Box<dyn Error>>;
     fn close(zip_file: *mut zip_t) -> Result<(), Box<dyn Error>>;
-    fn open(file: &Path) -> Result<*mut zip_t, Box<dyn Error>>;
+    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error>>;
 }
 
 impl ZipFileTrait for ZipFile {
@@ -80,7 +83,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn open(file: &Path) -> Result<*mut zip_t, Box<dyn Error>> {
+    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error>> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
@@ -89,6 +92,9 @@ impl ZipFileTrait for ZipFile {
             zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
         }
 
-        Ok(zip_file)
+        Ok(ZipFile {
+            file: zip_file,
+            filename: file.to_str().unwrap().to_string()
+        })
     }
 }
