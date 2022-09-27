@@ -4,8 +4,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+use std::error::Error;
 use std::ffi::CString;
-use std::fmt::Error;
 use std::os::raw::c_int;
 use std::path::Path;
 use std::ptr::null_mut;
@@ -17,14 +17,14 @@ pub struct ZipFile;
 
 #[cfg_attr(test, automock)]
 pub trait ZipFileTrait {
-    fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Error>;
-    fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Error>;
-    fn close(zip_file: *mut zip_t) -> Result<(), Error>;
-    fn open(file: &Path) -> Result<*mut zip_t, Error>;
+    fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Box<dyn Error>>;
+    fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Box<dyn Error>>;
+    fn close(zip_file: *mut zip_t) -> Result<(), Box<dyn Error>>;
+    fn open(file: &Path) -> Result<*mut zip_t, Box<dyn Error>>;
 }
 
 impl ZipFileTrait for ZipFile {
-    fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Error> {
+    fn add_buffer(zip_file: *mut zip_t, data: &String, filename: &str) -> Result<(), Box<dyn Error>> {
         let c_filename = CString::new(filename).unwrap();
         unsafe {
             let zip_source_err = null_mut();
@@ -47,7 +47,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Error> {
+    fn add_file(zip_file: *mut zip_t, src: &Path, filename: &str) -> Result<(), Box<dyn Error>> {
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
@@ -69,7 +69,7 @@ impl ZipFileTrait for ZipFile {
         Ok(())
     }
 
-    fn close(zip_file: *mut zip_t) -> Result<(), Error> {
+    fn close(zip_file: *mut zip_t) -> Result<(), Box<dyn Error>> {
         unsafe {
             let result = zip_close(zip_file);
 
@@ -80,7 +80,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn open(file: &Path) -> Result<*mut zip_t, Error> {
+    fn open(file: &Path) -> Result<*mut zip_t, Box<dyn Error>> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
