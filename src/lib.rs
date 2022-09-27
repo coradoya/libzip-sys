@@ -4,7 +4,6 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use lambda_runtime::Error;
 use std::ffi::CString;
 use std::fmt::Error;
 use std::os::raw::c_int;
@@ -14,10 +13,7 @@ use std::ptr::null_mut;
 #[cfg(test)]
 use mockall::automock;
 
-pub struct ZipFile {
-    file: String,
-    zip_file: *mut zip_t,
-}
+pub struct ZipFile;
 
 #[cfg_attr(test, automock)]
 pub trait ZipFileTrait {
