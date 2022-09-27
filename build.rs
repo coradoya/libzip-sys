@@ -10,12 +10,6 @@ fn build_libzip() {
     println!("cargo:rustc-link-lib=zip");
     println!("cargo:rerun-if-changed=wrapper.h");
 
-    if !Path::new("libzip/.git").exists() {
-        let _ = Command::new("git")
-            .args(&["submodule", "update", "--init"])
-            .status();
-    }
-
     let mut config = cmake::Config::new("libzip");
     config.define("ENABLE_NETTLE", "OFF");
     config.define("ENABLE_GNUTLS", "OFF");
