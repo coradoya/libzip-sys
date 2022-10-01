@@ -15,8 +15,8 @@ use mockall::automock;
 
 #[derive(Debug, Default)]
 pub struct Zip {
-    file: *mut zip_t,
-    filename: String
+    file: Option<*mut zip_t>,
+    filename: PathBuf
 }
 
 #[cfg_attr(test, automock)]
@@ -24,7 +24,7 @@ pub trait ZipFile {
     fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>>;
-    fn open(file: &Path) -> Result<Zip, Box<dyn Error + Sync + Send>>;
+    fn open(file: &PathBuf) -> Result<Zip, Box<dyn Error + Sync + Send>>;
 }
 
 #[cfg_attr(test, automock)]
@@ -32,27 +32,38 @@ pub trait ZipPack {
     fn pack_file(&self, batch_name: String, src: &str, filename: String);
 }
 
+impl Zip {
+    pub fn filename(&self) -> &Path {
+        self.filename.as_path()
+    }
+}
+
 impl ZipFile for Zip {
     fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>> {
         let c_filename = CString::new(filename).unwrap();
-        unsafe {
-            let zip_source_err = null_mut();
-            let zip_source = zip_source_buffer_create(
-                data.as_ptr() as _,
-                data.len() as zip_uint64_t,
-                0,
-                zip_source_err,
-            );
-            let zip_result = zip_file_add(
-                self.file,
-                c_filename.as_ptr(),
-                zip_source,
-                ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
-            );
-            match zip_result {
-                -1 => Err("Unable to add buffer to the zip".into()),
-                _ => Ok(()),
+        match self.file {
+            Some(zip_file) => {
+                unsafe {
+                    let zip_source_err = null_mut();
+                    let zip_source = zip_source_buffer_create(
+                        data.as_ptr() as _,
+                        data.len() as zip_uint64_t,
+                        0,
+                        zip_source_err,
+                    );
+                    let zip_result = zip_file_add(
+                        zip_file,
+                        c_filename.as_ptr(),
+                        zip_source,
+                        ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
+                    );
+                    match zip_result {
+                        -1 => Err("Unable to add buffer to the zip".into()),
+                        _ => Ok(()),
+                    }
+                }
             }
+            None => Err("Zip file is not open".into())
         }
     }
 
@@ -60,36 +71,45 @@ impl ZipFile for Zip {
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
-        unsafe {
-            let zip_source_err = null_mut();
-            let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
-            let zip_result = zip_file_add(
-                self.file,
-                c_filename.as_ptr(),
-                zip_source,
-                ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
-            );
+        match self.file {
+            Some(zip_file) => {
+                unsafe {
+                    let zip_source_err = null_mut();
+                    let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
+                    let zip_result = zip_file_add(
+                        zip_file,
+                        c_filename.as_ptr(),
+                        zip_source,
+                        ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
+                    );
 
-            if zip_result == -1 {
-                return Err("Unable to add file to zip".into());
+                    if zip_result == -1 {
+                        return Err("Unable to add file to zip".into());
+                    }
+                }
+                Ok(())
             }
+            None => Err("Zip file is not open".into())
         }
-
-        Ok(())
     }
 
     fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>> {
-        unsafe {
-            let result = zip_close(self.file);
+        match self.file {
+            Some(zip_file) => {
+                unsafe {
+                    let result = zip_close(zip_file);
 
-            match result {
-                0 => Ok(()),
-                _ => Err("Unable to close the zip file".into()),
+                    match result {
+                        0 => Ok(()),
+                        _ => Err("Unable to close the zip file".into()),
+                    }
+                }
             }
+            None => Err("No file to close".into())
         }
     }
 
-    fn open(file: &Path) -> Result<Zip, Box<dyn Error + Sync + Send>> {
+    fn open(file: &PathBuf) -> Result<Zip, Box<dyn Error + Sync + Send>> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
@@ -99,8 +119,8 @@ impl ZipFile for Zip {
         }
 
         Ok(Zip {
-            file: zip_file,
-            filename: file.to_str().unwrap().to_string()
+            file: Some(zip_file),
+            filename: file.clone()
         })
     }
 }
