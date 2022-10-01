@@ -29,7 +29,7 @@ pub trait ZipFile {
 
 #[cfg_attr(test, automock)]
 pub trait ZipPack {
-    fn pack_file(&self, batch_name: String, src: &str, filename: String);
+    fn pack_file(batch_name: String, src: &str, filename: String);
 }
 
 impl Zip {
@@ -126,7 +126,7 @@ impl ZipFile for Zip {
 }
 
 impl ZipPack for Zip {
-    fn pack_file(&self, batch_name: String, src: &str, filename: String) {
+    fn pack_file(batch_name: String, src: &str, filename: String) {
         let c_batch_name = CString::new(batch_name).unwrap();
         let c_src = CString::new(src).unwrap();
         let c_filename = CString::new(filename).unwrap();
