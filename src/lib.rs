@@ -13,21 +13,25 @@ use std::ptr::null_mut;
 #[cfg(test)]
 use mockall::automock;
 
-pub struct ZipFile {
+pub struct Zip {
     file: *mut zip_t,
     filename: String
 }
 
 #[cfg_attr(test, automock)]
-pub trait ZipFileTrait {
+pub trait ZipFile {
     fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>>;
-    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error + Sync + Send>>;
+    fn open(file: &Path) -> Result<Zip, Box<dyn Error + Sync + Send>>;
+}
+
+#[cfg_attr(test, automock)]
+pub trait ZipPack {
     fn pack_file(&self, batch_name: String, src: &str, filename: String);
 }
 
-impl ZipFileTrait for ZipFile {
+impl ZipFile for Zip {
     fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>> {
         let c_filename = CString::new(filename).unwrap();
         unsafe {
@@ -84,7 +88,7 @@ impl ZipFileTrait for ZipFile {
         }
     }
 
-    fn open(file: &Path) -> Result<ZipFile, Box<dyn Error + Sync + Send>> {
+    fn open(file: &Path) -> Result<Zip, Box<dyn Error + Sync + Send>> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
@@ -98,7 +102,9 @@ impl ZipFileTrait for ZipFile {
             filename: file.to_str().unwrap().to_string()
         })
     }
+}
 
+impl ZipPack for Zip {
     fn pack_file(&self, batch_name: String, src: &str, filename: String) {
         let c_batch_name = CString::new(batch_name).unwrap();
         let c_src = CString::new(src).unwrap();
