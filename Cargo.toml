@@ -14,3 +14,7 @@ libz-sys = { version = "1", default-features = false, features = ["zlib-ng"] }
 bindgen = "0.60"
 cmake = "0.1"
 mockall = "0.11.2"
+
+[features]
+default = []
+static = ["libz-sys/zlib-ng"]

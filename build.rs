@@ -21,28 +21,40 @@ fn build_libzip() {
     config.pic(true);
     config.register_dep("z");
 
-    config.define("ENABLE_BZIP2", "OFF");
-    config.define("ENABLE_LZMA", "OFF");
-    config.define("ENABLE_ZSTD", "OFF");
-    config.define("BUILD_SHARED_LIBS", "OFF");
+    #[cfg(feature = "static")]
+    {
+        config.define("ENABLE_BZIP2", "OFF");
+        config.define("ENABLE_LZMA", "OFF");
+        config.define("ENABLE_ZSTD", "OFF");
+        config.define("BUILD_SHARED_LIBS", "OFF");
+    }
 
     println!("Configuring and compiling zip");
     let dst = config.build();
 
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
 
-    println!(
-        "cargo:rustc-link-search={}/lib",
-        env::var("DEP_Z_ROOT").unwrap()
-    );
+    #[cfg(feature = "static")]
+    {
+        println!(
+            "cargo:rustc-link-search={}/lib",
+            env::var("DEP_Z_ROOT").unwrap()
+        );
 
-    #[cfg(all(windows, target_env = "gnu"))]
-    println!("cargo:rustc-link-lib=static=zlib");
+        #[cfg(all(windows, target_env = "gnu"))]
+        println!("cargo:rustc-link-lib=static=zlib");
 
-    #[cfg(not(all(windows, target_env = "gnu")))]
-    println!("cargo:rustc-link-lib=static=z");
+        #[cfg(not(all(windows, target_env = "gnu")))]
+        println!("cargo:rustc-link-lib=static=z");
 
-    println!("cargo:rustc-link-lib=static=zip");
+        println!("cargo:rustc-link-lib=static=zip");
+    }
+
+    # [cfg(not(feature = "static"))]
+    {
+        println!("cargo:rustc-link-lib=z");
+        println!("cargo:rustc-link-lib=zip");
+    }
 
     let bindings = bindgen::Builder::default()
         .clang_arg(format!("-I{}/include/", out_dir().display()))
