@@ -24,6 +24,7 @@ pub trait ZipFileTrait {
     fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn open(file: &Path) -> Result<ZipFile, Box<dyn Error + Sync + Send>>;
+    fn pack_file(&self, batch_name: String, src: &str, filename: String);
 }
 
 impl ZipFileTrait for ZipFile {
@@ -96,5 +97,31 @@ impl ZipFileTrait for ZipFile {
             file: zip_file,
             filename: file.to_str().unwrap().to_string()
         })
+    }
+
+    fn pack_file(&self, batch_name: String, src: &str, filename: String) {
+        let c_batch_name = CString::new(batch_name).unwrap();
+        let c_src = CString::new(src).unwrap();
+        let c_filename = CString::new(filename).unwrap();
+
+        unsafe {
+            let zip_file_err = null_mut();
+            let zip_file = zip_open(c_batch_name.as_ptr(), ZIP_CREATE as c_int, zip_file_err);
+
+            let zip_source_err = null_mut();
+            let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
+
+            let zip_result = zip_file_add(
+                zip_file,
+                c_filename.as_ptr(),
+                zip_source,
+                ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
+            );
+
+            if zip_result == -1 {
+                panic!("Unable to add zip file {}", src);
+            }
+            zip_close(zip_file);
+        }
     }
 }
