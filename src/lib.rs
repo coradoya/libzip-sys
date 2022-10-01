@@ -98,7 +98,7 @@ impl ZipFile for Zip {
             zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
         }
 
-        Ok(ZipFile {
+        Ok(Zip {
             file: zip_file,
             filename: file.to_str().unwrap().to_string()
         })
