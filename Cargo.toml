@@ -8,7 +8,9 @@ build = "build.rs"
 links = "zip"
 
 [dependencies]
-libz-sys = { version = "1", default-features = false, features = ["zlib-ng"] }
+openssl-sys = { version = "0.9", optional = true }
+libz-sys = { version = "1", optional = true, default-features = false }
+
 
 [build-dependencies]
 bindgen = "0.60"
@@ -17,4 +19,4 @@ mockall = "0.11.2"
 
 [features]
 default = []
-static = ["libz-sys/zlib-ng"]
+static = ["openssl-sys/vendored", "libz-sys/zlib-ng"]
