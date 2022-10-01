@@ -13,6 +13,7 @@ use std::ptr::null_mut;
 #[cfg(test)]
 use mockall::automock;
 
+#[derive(Debug, Default)]
 pub struct Zip {
     file: *mut zip_t,
     filename: String
