@@ -25,7 +25,7 @@ pub struct Zip {
 #[derive(Clone, Debug)]
 pub struct ZipEntry<'a> {
     zip_file: &'a Zip,
-    file: Some<*mut zip_file_t>,
+    file: Option<*mut zip_file_t>,
     name: String,
 }
 
@@ -193,7 +193,7 @@ impl ZipPack for Zip {
     }
 }
 
-impl ZipEntry {
+impl ZipEntry<'_> {
     pub fn close(&mut self) {
         if let Some(file) = self.file {
             unsafe {
@@ -226,11 +226,11 @@ impl ZipEntry {
     }
 }
 
-impl std::io::Read for ZipEntry {
+impl std::io::Read for ZipEntry<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self.file {
             Some(zip_file) => {
-                let block_size = buf.len() as uint64;
+                let block_size = buf.len() as u64;
                 let bytes_readed = unsafe {
                     zip_fread(zip_file, buf.as_mut_ptr() as *mut c_void, block_size)
                 };
@@ -238,10 +238,10 @@ impl std::io::Read for ZipEntry {
                 if bytes_readed >= 0 {
                     Ok(bytes_readed as usize)
                 } else {
-                    Err("Error reading the file".into())
+                    Err(std::io::Error::new(std::io::ErrorKind::Other, "Unable to read data"))
                 }
             }
-            None => Err("Zip file is not open".into())
+            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "Zip file is not open"))
         }
     }
 }
