@@ -114,8 +114,9 @@ impl ZipFile for Zip {
         if let Some(zip_file) = self.file {
             unsafe {
                 let num_entries = zip_get_num_entries(zip_file, 0);
+                let num_entries = zip_uint64_t::from(num_entries);
                 let entries = (0..num_entries).into_iter().map(|n| {
-                    let name = zip_get_name(zip_file, n.into(), ZIP_FL_ENC_GUESS);
+                    let name = zip_get_name(zip_file, n, ZIP_FL_ENC_GUESS);
                     let name = CStr::from_ptr(name);
 
                     name.to_str()?
