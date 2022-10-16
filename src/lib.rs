@@ -21,12 +21,18 @@ pub struct Zip {
     filename: PathBuf
 }
 
+#[derive(Clone, Debug)]
+pub struct ZipEntry {
+    name: String,
+    index: u64,
+}
+
 #[cfg_attr(test, automock)]
 pub trait ZipFile {
     fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()>;
     fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
-    fn entries(&self) -> ZipResult<Vec<String>>;
+    fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
     fn open(file: &PathBuf) -> ZipResult<Zip>;
 }
 
@@ -112,26 +118,32 @@ impl ZipFile for Zip {
         }
     }
 
-    fn entries(&self) -> ZipResult<Vec<String>> {
+    fn entries(&self) -> ZipResult<Vec<ZipEntry>> {
         if let Some(zip_file) = self.file {
-            unsafe {
-                let num_entries = zip_get_num_entries(zip_file, 0);
+            let num_entries = unsafe {
+                zip_get_num_entries(zip_file, 0)
+            };
 
-                if let Ok(num_entries) = zip_uint64_t::try_from(num_entries) {
-                    let entries = (0..num_entries).into_iter().map(|n| {
-                        let name = zip_get_name(zip_file, n, ZIP_FL_ENC_GUESS);
-                        let name = CStr::from_ptr(name);
+            let mut entries = Vec::new();
+            if let Ok(num_entries) = zip_uint64_t::try_from(num_entries) {
+                for index in 0..num_entries {
+                    let name = unsafe {
+                        let name = zip_get_name(zip_file.clone(), index.clone(), ZIP_FL_ENC_GUESS);
+                        CStr::from_ptr(name).to_str()
+                    };
 
-                        name.to_str()
-                    })
-                        .filter(|s| s.is_ok())
-                        .map(|s| String::from(s.unwrap()))
-                        .collect();
-
-                    Ok(entries)
-                } else {
-                    Err("Invalid number of entries".into())
+                    if let Ok(name) = name {
+                        let entry = ZipEntry {
+                            name: String::from(name),
+                            index
+                        };
+                        entries.push(entry);
+                    }
                 }
+
+                Ok(entries)
+            } else {
+                Err("Invalid number of entries".into())
             }
         } else {
             Ok(Vec::new())
