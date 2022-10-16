@@ -194,6 +194,14 @@ impl ZipPack for Zip {
 }
 
 impl ZipEntry {
+    pub fn close(&mut self) {
+        if let Some(file) = self.file {
+            unsafe {
+                zip_fclose(file);
+            }
+        }
+    }
+
     pub fn name(&self) -> String {
         self.name.clone()
     }
