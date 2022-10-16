@@ -194,6 +194,10 @@ impl ZipPack for Zip {
 }
 
 impl ZipEntry {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
     pub fn open(&mut self, entry: String) -> ZipResult<&mut Self> {
         match self.zip_file.file {
             Some(zip_file) => {
