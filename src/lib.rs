@@ -125,10 +125,7 @@ impl ZipFile for Zip {
                         name.to_str()
                     })
                         .filter(|s| s.is_ok())
-                        .map(|s| {
-                            let s = s.unwrap().replace("\"", "");
-                            String::from(s)
-                        })
+                        .map(|s| String::from(s))
                         .collect();
 
                     Ok(entries)
