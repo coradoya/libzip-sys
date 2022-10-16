@@ -206,7 +206,7 @@ impl ZipEntry {
         self.name.clone()
     }
 
-    pub fn open(&mut self) -> ZipResult<&mut Self> {
+    pub fn open(&mut self) -> ZipResult<()> {
         match self.zip_file.file {
             Some(zip_file) => {
                 let fname = CString::new(self.name())?;
@@ -218,7 +218,7 @@ impl ZipEntry {
                 } else {
                     self.file = Some(file);
 
-                    Ok(self)
+                    Ok(())
                 }
             }
             None => Err("Zip file is not valid. Was it opened?".into())
