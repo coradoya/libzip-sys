@@ -198,10 +198,10 @@ impl ZipEntry {
         self.name.clone()
     }
 
-    pub fn open(&mut self, entry: String) -> ZipResult<&mut Self> {
+    pub fn open(&mut self) -> ZipResult<&mut Self> {
         match self.zip_file.file {
             Some(zip_file) => {
-                let fname = CString::new(entry)?;
+                let fname = CString::new(self.name())?;
 
                 let file = unsafe { zip_fopen(zip_file, fname.as_ptr(), ZIP_FL_ENC_GUESS) };
 
