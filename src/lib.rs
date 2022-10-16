@@ -8,7 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
 use std::error::Error;
-use std::ffi::{CStr, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
@@ -16,16 +16,17 @@ use std::ptr::null_mut;
 #[cfg(test)]
 use mockall::automock;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Zip {
     file: Option<*mut zip_t>,
     filename: PathBuf,
 }
 
 #[derive(Clone, Debug)]
-pub struct ZipEntry {
+pub struct ZipEntry<'a> {
+    zip_file: &'a Zip,
+    file: Some<*mut zip_file_t>,
     name: String,
-    index: u64,
 }
 
 #[cfg_attr(test, automock)]
@@ -33,7 +34,6 @@ pub trait ZipFile {
     fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()>;
     fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
-    fn fopen(&self, entry: &ZipEntry) -> ZipResult<*mut zip_file_t>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
     fn open(file: &PathBuf) -> ZipResult<Zip>;
 }
@@ -54,7 +54,6 @@ impl ZipFile for Zip {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => {
-                let zip_file = zip_file.clone();
                 unsafe {
                     let zip_source_err = null_mut();
                     let zip_source = zip_source_buffer_create(
@@ -85,7 +84,6 @@ impl ZipFile for Zip {
 
         match self.file {
             Some(zip_file) => {
-                let zip_file = zip_file.clone();
                 unsafe {
                     let zip_source_err = null_mut();
                     let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
@@ -120,26 +118,8 @@ impl ZipFile for Zip {
         }
     }
 
-    fn fopen(&self, entry: String) -> ZipResult<*mut zip_file_t> {
+    fn entries(&self) -> ZipResult<Vec<ZipEntry>> {
         if let Some(zip_file) = self.file {
-            let zip_file = zip_file.clone();
-            let fname = CString::new(entry)?;
-
-            let file = unsafe { zip_fopen(zip_file, fname.as_ptr(), ZIP_FL_ENC_GUESS) };
-
-            if file.is_null() {
-                Err("Unable to open file in zip".into())
-            } else {
-                Ok(file)
-            }
-        } else {
-            Err("Invalid zip file".into())
-        }
-    }
-
-    fn entries(&self) -> ZipResult<Vec<String>> {
-        if let Some(zip_file) = self.file {
-            let zip_file = zip_file.clone();
             let num_entries = unsafe { zip_get_num_entries(zip_file, 0) };
 
             let mut entries = Vec::new();
@@ -151,7 +131,12 @@ impl ZipFile for Zip {
                     };
 
                     if let Ok(name) = name {
-                        entries.push(String::from(name));
+                        let entry = ZipEntry {
+                            name: String::from(name),
+                            zip_file: self,
+                            file: None
+                        };
+                        entries.push(entry);
                     }
                 }
 
@@ -204,6 +189,47 @@ impl ZipPack for Zip {
                 panic!("Unable to add zip file {}", src);
             }
             zip_close(zip_file);
+        }
+    }
+}
+
+impl ZipEntry {
+    pub fn open(&mut self, entry: String) -> ZipResult<&mut Self> {
+        match self.zip_file.file {
+            Some(zip_file) => {
+                let fname = CString::new(entry)?;
+
+                let file = unsafe { zip_fopen(zip_file, fname.as_ptr(), ZIP_FL_ENC_GUESS) };
+
+                if file.is_null() {
+                    Err("Unable to open file in zip".into())
+                } else {
+                    self.file = Some(file);
+
+                    Ok(self)
+                }
+            }
+            None => Err("Zip file is not valid. Was it opened?".into())
+        }
+    }
+}
+
+impl std::io::Read for ZipEntry {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self.file {
+            Some(zip_file) => {
+                let block_size = buf.len() as uint64;
+                let bytes_readed = unsafe {
+                    zip_fread(zip_file, buf.as_mut_ptr() as *mut c_void, block_size)
+                };
+
+                if bytes_readed >= 0 {
+                    Ok(bytes_readed as usize)
+                } else {
+                    Err("Error reading the file".into())
+                }
+            }
+            None => Err("Zip file is not open".into())
         }
     }
 }
