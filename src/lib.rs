@@ -5,7 +5,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use std::error::Error;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
@@ -24,6 +24,7 @@ pub trait ZipFile {
     fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
     fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>>;
+    fn entries(&self) -> Result<Vec<String>, Box<dyn Error + Sync + Send>>;
     fn open(file: &PathBuf) -> Result<Zip, Box<dyn Error + Sync + Send>>;
 }
 
@@ -106,6 +107,26 @@ impl ZipFile for Zip {
                 }
             }
             None => Err("No file to close".into())
+        }
+    }
+
+    fn entries(&self) -> Result<Vec<String>, Box<dyn Error + Sync + Send>> {
+        if let Some(zip_file) = self.file {
+            unsafe {
+                let num_entries = zip_get_num_entries(zip_file, 0);
+                let entries = (0..num_entries).into_iter().map(|n| {
+                    let name = zip_get_name(zip_file, n.into(), ZIP_FL_ENC_GUESS);
+                    let name = CStr::from_ptr(name);
+
+                    name.to_str()?
+                })
+                    .map(|s| String::from(s))
+                    .collect();
+
+                Ok(entries)
+            }
+        } else {
+            Ok(Vec::new())
         }
     }
 
