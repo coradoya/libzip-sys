@@ -4,6 +4,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
+
 use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
@@ -21,11 +23,11 @@ pub struct Zip {
 
 #[cfg_attr(test, automock)]
 pub trait ZipFile {
-    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
-    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>>;
-    fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>>;
-    fn entries(&self) -> Result<Vec<String>, Box<dyn Error + Sync + Send>>;
-    fn open(file: &PathBuf) -> Result<Zip, Box<dyn Error + Sync + Send>>;
+    fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()>;
+    fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
+    fn close(&self) -> ZipResult<()>;
+    fn entries(&self) -> ZipResult<Vec<String>>;
+    fn open(file: &PathBuf) -> ZipResult<Zip>;
 }
 
 #[cfg_attr(test, automock)]
@@ -40,7 +42,7 @@ impl Zip {
 }
 
 impl ZipFile for Zip {
-    fn add_buffer(&self, data: &String, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()> {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => {
@@ -68,7 +70,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn add_file(&self, src: &Path, filename: &str) -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()> {
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
@@ -94,7 +96,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn close(&self) -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn close(&self) -> ZipResult<()> {
         match self.file {
             Some(zip_file) => {
                 unsafe {
@@ -110,7 +112,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn entries(&self) -> Result<Vec<String>, Box<dyn Error + Sync + Send>> {
+    fn entries(&self) -> ZipResult<Vec<String>> {
         if let Some(zip_file) = self.file {
             unsafe {
                 let num_entries = zip_get_num_entries(zip_file, 0);
@@ -136,7 +138,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn open(file: &PathBuf) -> Result<Zip, Box<dyn Error + Sync + Send>> {
+    fn open(file: &PathBuf) -> ZipResult<Zip> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
