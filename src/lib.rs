@@ -125,7 +125,7 @@ impl ZipFile for Zip {
                         name.to_str()
                     })
                         .filter(|s| s.is_ok())
-                        .map(|s| String::from(s))
+                        .map(|s| String::from(s.unwrap()))
                         .collect();
 
                     Ok(entries)
