@@ -2,7 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+include!("zip.rs");
 
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
@@ -18,7 +19,7 @@ use mockall::automock;
 #[derive(Debug, Default)]
 pub struct Zip {
     file: Option<*mut zip_t>,
-    filename: PathBuf
+    filename: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -32,6 +33,7 @@ pub trait ZipFile {
     fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()>;
     fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
+    fn fopen(&self, entry: &ZipEntry) -> ZipResult<*mut zip_file_t>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
     fn open(file: &PathBuf) -> ZipResult<Zip>;
 }
@@ -52,6 +54,7 @@ impl ZipFile for Zip {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => {
+                let zip_file = zip_file.clone();
                 unsafe {
                     let zip_source_err = null_mut();
                     let zip_source = zip_source_buffer_create(
@@ -72,7 +75,7 @@ impl ZipFile for Zip {
                     }
                 }
             }
-            None => Err("Zip file is not open".into())
+            None => Err("Zip file is not open".into()),
         }
     }
 
@@ -82,6 +85,7 @@ impl ZipFile for Zip {
 
         match self.file {
             Some(zip_file) => {
+                let zip_file = zip_file.clone();
                 unsafe {
                     let zip_source_err = null_mut();
                     let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
@@ -98,46 +102,56 @@ impl ZipFile for Zip {
                 }
                 Ok(())
             }
-            None => Err("Zip file is not open".into())
+            None => Err("Zip file is not open".into()),
         }
     }
 
     fn close(&self) -> ZipResult<()> {
         match self.file {
-            Some(zip_file) => {
-                unsafe {
-                    let result = zip_close(zip_file);
+            Some(zip_file) => unsafe {
+                let result = zip_close(zip_file);
 
-                    match result {
-                        0 => Ok(()),
-                        _ => Err("Unable to close the zip file".into()),
-                    }
+                match result {
+                    0 => Ok(()),
+                    _ => Err("Unable to close the zip file".into()),
                 }
-            }
-            None => Err("No file to close".into())
+            },
+            None => Err("No file to close".into()),
         }
     }
 
-    fn entries(&self) -> ZipResult<Vec<ZipEntry>> {
+    fn fopen(&self, entry: String) -> ZipResult<*mut zip_file_t> {
         if let Some(zip_file) = self.file {
-            let num_entries = unsafe {
-                zip_get_num_entries(zip_file, 0)
-            };
+            let zip_file = zip_file.clone();
+            let fname = CString::new(entry)?;
+
+            let file = unsafe { zip_fopen(zip_file, fname.as_ptr(), ZIP_FL_ENC_GUESS) };
+
+            if file.is_null() {
+                Err("Unable to open file in zip".into())
+            } else {
+                Ok(file)
+            }
+        } else {
+            Err("Invalid zip file".into())
+        }
+    }
+
+    fn entries(&self) -> ZipResult<Vec<String>> {
+        if let Some(zip_file) = self.file {
+            let zip_file = zip_file.clone();
+            let num_entries = unsafe { zip_get_num_entries(zip_file, 0) };
 
             let mut entries = Vec::new();
             if let Ok(num_entries) = zip_uint64_t::try_from(num_entries) {
                 for index in 0..num_entries {
                     let name = unsafe {
-                        let name = zip_get_name(zip_file.clone(), index.clone(), ZIP_FL_ENC_GUESS);
+                        let name = zip_get_name(zip_file, index.clone(), ZIP_FL_ENC_GUESS);
                         CStr::from_ptr(name).to_str()
                     };
 
                     if let Ok(name) = name {
-                        let entry = ZipEntry {
-                            name: String::from(name),
-                            index
-                        };
-                        entries.push(entry);
+                        entries.push(String::from(name));
                     }
                 }
 
@@ -161,7 +175,7 @@ impl ZipFile for Zip {
 
         Ok(Zip {
             file: Some(zip_file),
-            filename: file.clone()
+            filename: file.clone(),
         })
     }
 }
