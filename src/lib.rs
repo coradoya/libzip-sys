@@ -120,7 +120,7 @@ impl ZipFile for Zip {
                         let name = zip_get_name(zip_file, n, ZIP_FL_ENC_GUESS);
                         let name = CStr::from_ptr(name);
 
-                        name.to_str()?
+                        name.to_str()
                     })
                         .map(|s| String::from(s))
                         .collect();
