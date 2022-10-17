@@ -112,7 +112,7 @@ impl ZipFile for Zip {
 
                 match result {
                     0 => Ok(()),
-                    _ => Err("Unable to close the zip file".into()),
+                    _ => Err(zip_strerror(zip_file).to_string().into()),
                 }
             },
             None => Err("No file to close".into()),
