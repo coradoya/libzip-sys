@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-// include!("zip.rs");
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+include!("zip.rs");
 
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
@@ -155,11 +155,11 @@ impl ZipFile for Zip {
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
         unsafe {
-            let zip_file_err = null_mut();
+            let zip_file_err: *mut c_int = null_mut();
             zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
 
             if zip_file.is_null() {
-                match zip_file_err {
+                match zip_file_err.read() {
                     ZIP_ER_EXISTS => { Err("The file specified by path exists and ZIP_EXCL is set.".into()) }
                     ZIP_ER_INCONS => { Err("Inconsistencies were found in the file specified by path..".into()) }
                     ZIP_ER_INVAL => { Err("The path argument is NULL".into()) }
