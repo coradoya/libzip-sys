@@ -86,6 +86,7 @@ impl ZipFile for Zip {
 
         match self.file {
             Some(zip_file) => {
+                let zip_file = zip_file.clone();
                 unsafe {
                     info!("Creating the zip source");
                     let zip_source_err = null_mut();
