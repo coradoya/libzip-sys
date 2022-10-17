@@ -12,6 +12,7 @@ use std::ffi::{c_void, CStr, CString};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
+use tracing::{event, info, Level};
 
 #[cfg(test)]
 use mockall::automock;
@@ -79,14 +80,18 @@ impl ZipFile for Zip {
     }
 
     fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()> {
+        event!(Level::INFO, ?src, ?filename, "Adding a file to the zip");
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
         match self.file {
             Some(zip_file) => {
                 unsafe {
+                    info!("Creating the zip source");
                     let zip_source_err = null_mut();
                     let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
+
+                    info!("Adding the file");
                     let zip_result = zip_file_add(
                         zip_file,
                         c_filename.as_ptr(),
