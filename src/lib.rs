@@ -168,6 +168,7 @@ impl ZipFile for Zip {
             }
         }
     }
+}
 
 impl ZipPack for Zip {
     fn pack_file(batch_name: String, src: &str, filename: String) {
