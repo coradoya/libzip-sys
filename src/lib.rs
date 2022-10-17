@@ -159,7 +159,18 @@ impl ZipFile for Zip {
             zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
 
             if zip_file.is_null() {
-                Err(zip_file_err.to_string().into())
+                match zip_file_err {
+                    ZIP_ER_EXISTS => { Err("The file specified by path exists and ZIP_EXCL is set.".into()) }
+                    ZIP_ER_INCONS => { Err("Inconsistencies were found in the file specified by path..".into()) }
+                    ZIP_ER_INVAL => { Err("The path argument is NULL".into()) }
+                    ZIP_ER_MEMORY => { Err("Required memory could not be allocated".into()) }
+                    ZIP_ER_NOENT => { Err("The file specified by path does not exist and ZIP_CREATE is not set".into()) }
+                    ZIP_ER_NOZIP => { Err("The file specified by path is not a zip archive".into()) }
+                    ZIP_ER_OPEN => { Err("The file specified by path could not be opened".into()) }
+                    ZIP_ER_READ => { Err("A read error ocurred".into()) }
+                    ZIP_ER_SEEK => { Err("The file specified by path does not allow seeks".into()) }
+                    _ => { Err("Unexpected error while trying to open the zip".into()) }
+                 }
             } else {
                 Ok(Zip {
                     file: Some(zip_file),
