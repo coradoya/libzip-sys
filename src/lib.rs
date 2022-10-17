@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-// include!("zip.rs");
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+include!("zip.rs");
 
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
@@ -80,19 +80,14 @@ impl ZipFile for Zip {
     }
 
     fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()> {
-        event!(Level::INFO, ?src, ?filename, "Adding a file to the zip");
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
         match self.file {
             Some(zip_file) => {
-                let zip_file = zip_file.clone();
                 unsafe {
-                    info!("Creating the zip source");
                     let zip_source_err = null_mut();
                     let zip_source = zip_source_file_create(c_src.as_ptr(), 0, -1, zip_source_err);
-
-                    info!("Adding the file");
                     let zip_result = zip_file_add(
                         zip_file,
                         c_filename.as_ptr(),
@@ -162,14 +157,17 @@ impl ZipFile for Zip {
         unsafe {
             let zip_file_err = null_mut();
             zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
-        }
 
-        Ok(Zip {
-            file: Some(zip_file),
-            filename: file.clone(),
-        })
+            if zip_file.is_null() {
+                Err(zip_file_err.to_string().into())
+            } else {
+                Ok(Zip {
+                    file: Some(zip_file),
+                    filename: file.clone(),
+                })
+            }
+        }
     }
-}
 
 impl ZipPack for Zip {
     fn pack_file(batch_name: String, src: &str, filename: String) {
