@@ -36,7 +36,7 @@ pub trait ZipFile {
     fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
-    fn open(file: &PathBuf) -> ZipResult<Zip>;
+    fn open(file: &PathBuf, create: bool) -> ZipResult<Zip>;
 }
 
 #[cfg_attr(test, automock)]
@@ -150,13 +150,18 @@ impl ZipFile for Zip {
         }
     }
 
-    fn open(file: &PathBuf) -> ZipResult<Zip> {
+    fn open(file: &PathBuf, create: bool) -> ZipResult<Zip> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
         unsafe {
             let zip_file_err: *mut c_int = null_mut();
-            zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
+            let flags = if create {
+                ZIP_CHECKCONS as c_int | ZIP_CREATE as c_int
+            } else {
+                ZIP_CHECKCONS as c_int
+            };
+            zip_file = zip_open(c_src.as_ptr(), flags, zip_file_err);
 
             if zip_file.is_null() {
                 match zip_file_err.read() as u32 {
