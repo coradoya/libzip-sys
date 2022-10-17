@@ -112,7 +112,11 @@ impl ZipFile for Zip {
 
                 match result {
                     0 => Ok(()),
-                    _ => Err(zip_strerror(zip_file).to_string().into()),
+                    _ => {
+                        let msg = zip_strerror(zip_file);
+                        let msg = CStr::from_ptr(msg).to_str()?;
+                        Err(msg.into())
+                    },
                 }
             },
             None => Err("No file to close".into()),
