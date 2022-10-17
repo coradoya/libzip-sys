@@ -159,7 +159,7 @@ impl ZipFile for Zip {
             zip_file = zip_open(c_src.as_ptr(), ZIP_CHECKCONS as c_int, zip_file_err);
 
             if zip_file.is_null() {
-                match zip_file_err.read() {
+                match zip_file_err.read() as i32 {
                     ZIP_ER_EXISTS => { Err("The file specified by path exists and ZIP_EXCL is set.".into()) }
                     ZIP_ER_INCONS => { Err("Inconsistencies were found in the file specified by path..".into()) }
                     ZIP_ER_INVAL => { Err("The path argument is NULL".into()) }
