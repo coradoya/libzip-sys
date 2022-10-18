@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-// include!("zip.rs");
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+include!("zip.rs");
 
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
@@ -11,7 +11,10 @@ use std::error::Error;
 use std::ffi::{c_void, CStr, CString};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::ptr::null_mut;
+use std::task::{Context, Poll};
+use tokio::io::ReadBuf;
 use tracing::{event, info, Level};
 
 #[cfg(test)]
@@ -267,6 +270,27 @@ impl std::io::Read for ZipEntry<'_> {
                 }
             }
             None => Err(std::io::Error::new(std::io::ErrorKind::Other, "Zip file is not open"))
+        }
+    }
+}
+
+impl tokio::io::AsyncRead for ZipEntry<'_> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+        match self.file {
+            Some(zip_file) => {
+                let size = buf.remaining();
+                let mut buffer: Vec<u8> = Vec::with_capacity(size);
+                let bytes_read = unsafe {
+                    zip_fread(zip_file, buffer.as_mut_ptr() as *mut c_void, size as u64)
+                };
+
+                if bytes_read > 0 {
+                    buf.put_slice(buffer.as_slice());
+                }
+
+                Poll::Ready(Ok(()))
+            }
+            None => Poll::Ready(Err(tokio::io::Error::new(tokio::io::ErrorKind::Other, "Zip file is not open")))
         }
     }
 }
