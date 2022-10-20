@@ -58,27 +58,25 @@ impl ZipFile for Zip {
         let data = data.as_ref();
         let c_filename = CString::new(filename).unwrap();
         match self.file {
-            Some(zip_file) => {
-                unsafe {
-                    let zip_source_err = null_mut();
-                    let zip_source = zip_source_buffer_create(
-                        data.as_ptr() as _,
-                        data.len() as zip_uint64_t,
-                        0,
-                        zip_source_err,
-                    );
-                    let zip_result = zip_file_add(
-                        zip_file,
-                        c_filename.as_ptr(),
-                        zip_source,
-                        ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
-                    );
-                    match zip_result {
-                        -1 => Err("Unable to add buffer to the zip".into()),
-                        _ => Ok(()),
-                    }
+            Some(zip_file) => unsafe {
+                let zip_source_err = null_mut();
+                let zip_source = zip_source_buffer_create(
+                    data.as_ptr() as _,
+                    data.len() as zip_uint64_t,
+                    0,
+                    zip_source_err,
+                );
+                let zip_result = zip_file_add(
+                    zip_file,
+                    c_filename.as_ptr(),
+                    zip_source,
+                    ZIP_FL_OVERWRITE | ZIP_FL_ENC_UTF_8,
+                );
+                match zip_result {
+                    -1 => Err("Unable to add buffer to the zip".into()),
+                    _ => Ok(()),
                 }
-            }
+            },
             None => Err("Zip file is not open".into()),
         }
     }
@@ -120,7 +118,7 @@ impl ZipFile for Zip {
                         let msg = zip_strerror(zip_file);
                         let msg = CStr::from_ptr(msg).to_str()?;
                         Err(msg.into())
-                    },
+                    }
                 }
             },
             None => Err("No file to close".into()),
@@ -143,7 +141,7 @@ impl ZipFile for Zip {
                         let entry = ZipEntry {
                             name: String::from(name),
                             zip_file: self,
-                            file: None
+                            file: None,
                         };
                         entries.push(entry);
                     }
@@ -173,17 +171,24 @@ impl ZipFile for Zip {
 
             if zip_file.is_null() {
                 match zip_file_err.read() as u32 {
-                    ZIP_ER_EXISTS => { Err("The file specified by path exists and ZIP_EXCL is set.".into()) }
-                    ZIP_ER_INCONS => { Err("Inconsistencies were found in the file specified by path..".into()) }
-                    ZIP_ER_INVAL => { Err("The path argument is NULL".into()) }
-                    ZIP_ER_MEMORY => { Err("Required memory could not be allocated".into()) }
-                    ZIP_ER_NOENT => { Err("The file specified by path does not exist and ZIP_CREATE is not set".into()) }
-                    ZIP_ER_NOZIP => { Err("The file specified by path is not a zip archive".into()) }
-                    ZIP_ER_OPEN => { Err("The file specified by path could not be opened".into()) }
-                    ZIP_ER_READ => { Err("A read error ocurred".into()) }
-                    ZIP_ER_SEEK => { Err("The file specified by path does not allow seeks".into()) }
-                    _ => { Err("Unexpected error while trying to open the zip".into()) }
-                 }
+                    ZIP_ER_EXISTS => {
+                        Err("The file specified by path exists and ZIP_EXCL is set.".into())
+                    }
+                    ZIP_ER_INCONS => {
+                        Err("Inconsistencies were found in the file specified by path..".into())
+                    }
+                    ZIP_ER_INVAL => Err("The path argument is NULL".into()),
+                    ZIP_ER_MEMORY => Err("Required memory could not be allocated".into()),
+                    ZIP_ER_NOENT => Err(
+                        "The file specified by path does not exist and ZIP_CREATE is not set"
+                            .into(),
+                    ),
+                    ZIP_ER_NOZIP => Err("The file specified by path is not a zip archive".into()),
+                    ZIP_ER_OPEN => Err("The file specified by path could not be opened".into()),
+                    ZIP_ER_READ => Err("A read error ocurred".into()),
+                    ZIP_ER_SEEK => Err("The file specified by path does not allow seeks".into()),
+                    _ => Err("Unexpected error while trying to open the zip".into()),
+                }
             } else {
                 Ok(Zip {
                     file: Some(zip_file),
@@ -250,7 +255,7 @@ impl ZipEntry<'_> {
                     Ok(())
                 }
             }
-            None => Err("Zip file is not valid. Was it opened?".into())
+            None => Err("Zip file is not valid. Was it opened?".into()),
         }
     }
 }
@@ -260,29 +265,42 @@ impl std::io::Read for ZipEntry<'_> {
         match self.file {
             Some(zip_file) => {
                 let block_size = buf.len() as u64;
-                let bytes_readed = unsafe {
-                    zip_fread(zip_file, buf.as_mut_ptr() as *mut c_void, block_size)
-                };
+                let bytes_readed =
+                    unsafe { zip_fread(zip_file, buf.as_mut_ptr() as *mut c_void, block_size) };
 
                 if bytes_readed >= 0 {
                     Ok(bytes_readed as usize)
                 } else {
-                    Err(std::io::Error::new(std::io::ErrorKind::Other, "Unable to read data"))
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Unable to read data",
+                    ))
                 }
             }
-            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "Zip file is not open"))
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Zip file is not open",
+            )),
         }
     }
 }
 
 impl tokio::io::AsyncRead for ZipEntry<'_> {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
         match self.file {
             Some(zip_file) => {
                 let size = buf.remaining();
                 let mut buffer: Vec<u8> = Vec::with_capacity(size);
                 let bytes_read = unsafe {
-                    zip_fread(zip_file, buffer.as_mut_ptr() as *mut c_void, buffer.capacity() as u64)
+                    zip_fread(
+                        zip_file,
+                        buffer.as_mut_ptr() as *mut c_void,
+                        buffer.capacity() as u64,
+                    )
                 };
 
                 if bytes_read > 0 {
@@ -291,7 +309,10 @@ impl tokio::io::AsyncRead for ZipEntry<'_> {
 
                 Poll::Ready(Ok(()))
             }
-            None => Poll::Ready(Err(tokio::io::Error::new(tokio::io::ErrorKind::Other, "Zip file is not open")))
+            None => Poll::Ready(Err(tokio::io::Error::new(
+                tokio::io::ErrorKind::Other,
+                "Zip file is not open",
+            ))),
         }
     }
 }
