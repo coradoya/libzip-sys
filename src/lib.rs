@@ -157,8 +157,9 @@ impl ZipFile for Zip {
     }
 
     fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip> {
+        let file = file.as_ref();
         let zip_file;
-        let location: &str = file.as_ref().to_str().unwrap();
+        let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
         unsafe {
             let zip_file_err: *mut c_int = null_mut();
@@ -192,7 +193,7 @@ impl ZipFile for Zip {
             } else {
                 Ok(Zip {
                     file: Some(zip_file),
-                    filename: file.clone(),
+                    filename: file.into(),
                 })
             }
         }
