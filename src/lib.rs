@@ -35,11 +35,11 @@ pub struct ZipEntry<'a> {
 
 #[cfg_attr(test, automock)]
 pub trait ZipFile {
-    fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()>;
-    fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
+    fn add_buffer<B: AsRef<String>>(&self, data: B, filename: &str) -> ZipResult<()>;
+    fn add_file<P: AsRef<Path>>(&self, src: P, filename: &str) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
-    fn open(file: &PathBuf, create: bool) -> ZipResult<Zip>;
+    fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip>;
 }
 
 #[cfg_attr(test, automock)]
@@ -54,7 +54,8 @@ impl Zip {
 }
 
 impl ZipFile for Zip {
-    fn add_buffer(&self, data: &String, filename: &str) -> ZipResult<()> {
+    fn add_buffer<B: AsRef<String>>(&self, data: B, filename: &str) -> ZipResult<()> {
+        let data = data.as_ref();
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => {
@@ -82,8 +83,8 @@ impl ZipFile for Zip {
         }
     }
 
-    fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()> {
-        let c_src = CString::new(src.to_str().unwrap()).unwrap();
+    fn add_file<P: AsRef<Path>>(&self, src: P, filename: &str) -> ZipResult<()> {
+        let c_src = CString::new(src.as_ref().to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
         match self.file {
@@ -157,9 +158,9 @@ impl ZipFile for Zip {
         }
     }
 
-    fn open(file: &PathBuf, create: bool) -> ZipResult<Zip> {
+    fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip> {
         let zip_file;
-        let location: &str = file.to_str().unwrap();
+        let location: &str = file.as_ref().to_str().unwrap();
         let c_src = CString::new(location)?;
         unsafe {
             let zip_file_err: *mut c_int = null_mut();
@@ -281,7 +282,7 @@ impl tokio::io::AsyncRead for ZipEntry<'_> {
                 let size = buf.remaining();
                 let mut buffer: Vec<u8> = Vec::with_capacity(size);
                 let bytes_read = unsafe {
-                    zip_fread(zip_file, buffer.as_mut_ptr() as *mut c_void, size as u64)
+                    zip_fread(zip_file, buffer.as_mut_ptr() as *mut c_void, buffer.capacity() as u64)
                 };
 
                 if bytes_read > 0 {
