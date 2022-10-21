@@ -318,7 +318,7 @@ impl tokio::io::AsyncRead for ZipEntry<'_> {
     }
 }
 
-impl Drop for ZipEntry {
+impl Drop for ZipEntry<'_> {
     fn drop(&mut self) {
         self.close();
     }
