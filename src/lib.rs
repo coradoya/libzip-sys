@@ -36,7 +36,7 @@ pub struct ZipEntry<'a> {
 #[cfg_attr(test, automock)]
 pub trait ZipFile {
     fn add_buffer<B: AsRef<String>>(&self, data: B, filename: &str) -> ZipResult<()>;
-    fn add_file<P: AsRef<Path>>(&self, src: P, filename: &str) -> ZipResult<()>;
+    fn add_file<P: AsRef<Path>, F: AsRef<str>>(&self, src: P, filename: F) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
     fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip>;
@@ -81,9 +81,9 @@ impl ZipFile for Zip {
         }
     }
 
-    fn add_file<P: AsRef<Path>>(&self, src: P, filename: &str) -> ZipResult<()> {
+    fn add_file<P: AsRef<Path>, F: AsRef<str>>(&self, src: P, filename: F) -> ZipResult<()> {
         let c_src = CString::new(src.as_ref().to_str().unwrap()).unwrap();
-        let c_filename = CString::new(filename).unwrap();
+        let c_filename = CString::new(filename.as_ref().to_string()).unwrap();
 
         match self.file {
             Some(zip_file) => {
