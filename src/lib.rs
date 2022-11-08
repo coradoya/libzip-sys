@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-include!("zip.rs");
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+// include!("zip.rs");
 
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
@@ -15,10 +15,6 @@ use std::pin::Pin;
 use std::ptr::null_mut;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
-use tracing::{event, info, Level};
-
-#[cfg(test)]
-use mockall::automock;
 
 #[derive(Clone, Debug, Default)]
 pub struct Zip {
@@ -33,16 +29,14 @@ pub struct ZipEntry<'a> {
     name: String,
 }
 
-#[cfg_attr(test, automock)]
 pub trait ZipFile {
-    fn add_buffer<B: AsRef<String>>(&self, data: B, filename: &str) -> ZipResult<()>;
+    fn add_buffer<B: AsRef<str>>(&self, data: B, filename: &str) -> ZipResult<()>;
     fn add_file<P: AsRef<Path>, F: AsRef<str>>(&self, src: P, filename: F) -> ZipResult<()>;
     fn close(&self) -> ZipResult<()>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
     fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip>;
 }
 
-#[cfg_attr(test, automock)]
 pub trait ZipPack {
     fn pack_file(batch_name: String, src: &str, filename: String);
 }
@@ -54,7 +48,7 @@ impl Zip {
 }
 
 impl ZipFile for Zip {
-    fn add_buffer<B: AsRef<String>>(&self, data: B, filename: &str) -> ZipResult<()> {
+    fn add_buffer<B: AsRef<str>>(&self, data: B, filename: &str) -> ZipResult<()> {
         let data = data.as_ref();
         let c_filename = CString::new(filename).unwrap();
         match self.file {
@@ -133,7 +127,7 @@ impl ZipFile for Zip {
             if let Ok(num_entries) = zip_uint64_t::try_from(num_entries) {
                 for index in 0..num_entries {
                     let name = unsafe {
-                        let name = zip_get_name(zip_file, index.clone(), ZIP_FL_ENC_GUESS);
+                        let name = zip_get_name(zip_file, index, ZIP_FL_ENC_GUESS);
                         CStr::from_ptr(name).to_str()
                     };
 
