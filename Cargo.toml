@@ -1,6 +1,6 @@
 [package]
 name = "libzip-sys"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Dicomserver Team"]
 edition = "2021"
 description = "Bindgen bindings to system libzip"
@@ -14,7 +14,7 @@ tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1" }
 
 [build-dependencies]
-bindgen = "0.61.0"
+bindgen = "0.63.0"
 cmake = "0.1"
 
 [features]
