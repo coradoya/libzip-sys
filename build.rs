@@ -27,12 +27,11 @@ fn build_libzip() {
         config.define("BUILD_SHARED_LIBS", "OFF");
     }
 
-    println!("Configuring and compiling zip");
-    let dst = config.build();
-
-
     #[cfg(feature = "static")]
     {
+        println!("Configuring and compiling zip");
+        let dst = config.build();
+
         println!("cargo:rustc-link-search=native={}/lib", dst.display());
         println!(
             "cargo:rustc-link-search={}/lib",
@@ -46,25 +45,32 @@ fn build_libzip() {
         println!("cargo:rustc-link-lib=static=z");
 
         println!("cargo:rustc-link-lib=static=zip");
+
+        bindgen::Builder::default()
+            .clang_arg(format!("-I{}/include/", out_dir().display()))
+            .clang_arg(format!("-I{}", dst.as_path().display()))
+            .header("wrapper.h")
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+            .generate()
+            .expect("Unable to generate bindings")
+            .write_to_file(out_dir().join("bindings.rs"))
+            .expect("Couldn't write bindings!");
     }
 
     #[cfg(not(feature = "static"))]
     {
         println!("cargo:rustc-link-lib=z");
         println!("cargo:rustc-link-lib=zip");
+
+        bindgen::Builder::default()
+            .header("wrapper.h")
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+            .generate()
+            .expect("Unable to generate bindings")
+            .write_to_file(out_dir().join("bindings.rs"))
+            .expect("Couldn't write bindings!");
+
     }
-
-    let bindings = bindgen::Builder::default()
-        .clang_arg(format!("-I{}/include/", out_dir().display()))
-        .clang_arg(format!("-I{}", dst.as_path().display()))
-        .header("wrapper.h")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
-        .generate()
-        .expect("Unable to generate bindings");
-
-    bindings
-        .write_to_file(out_dir().join("bindings.rs"))
-        .expect("Couldn't write bindings!");
 }
 
 fn main() {
