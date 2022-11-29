@@ -30,10 +30,10 @@ fn build_libzip() {
     println!("Configuring and compiling zip");
     let dst = config.build();
 
-    println!("cargo:rustc-link-search=native={}/lib", dst.display());
 
     #[cfg(feature = "static")]
     {
+        println!("cargo:rustc-link-search=native={}/lib", dst.display());
         println!(
             "cargo:rustc-link-search={}/lib",
             env::var("DEP_Z_ROOT").unwrap()
@@ -48,7 +48,7 @@ fn build_libzip() {
         println!("cargo:rustc-link-lib=static=zip");
     }
 
-    # [cfg(not(feature = "static"))]
+    #[cfg(not(feature = "static"))]
     {
         println!("cargo:rustc-link-lib=z");
         println!("cargo:rustc-link-lib=zip");
