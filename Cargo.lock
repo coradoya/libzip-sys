@@ -10,9 +10,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "bindgen"
-version = "0.61.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a022e58a142a46fea340d68012b9201c094e93ec3d033a944a24f8fd4a4f09a"
+checksum = "36d860121800b2a9a94f9b5604b332d5cffb234ce17609ea479d723dbc9d3885"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -147,7 +147,7 @@ dependencies = [
 
 [[package]]
 name = "libzip-sys"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bindgen",
  "cmake",
@@ -388,9 +388,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.21.2"
+version = "1.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9e03c497dc955702ba729190dc4aac6f2a0ce97f913e5b1b5912fc5039d9099"
+checksum = "38a54aca0c15d014013256222ba0ebed095673f89345dd79119d912eb561b7a8"
 dependencies = [
  "autocfg",
  "bytes",
@@ -403,7 +403,7 @@ dependencies = [
  "signal-hook-registry",
  "socket2",
  "tokio-macros",
- "winapi",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
