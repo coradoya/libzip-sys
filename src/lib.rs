@@ -215,7 +215,7 @@ impl ZipPack for Zip {
             );
 
             if zip_result == -1 {
-                panic!("Unable to add zip file {}", src);
+                panic!("Unable to add zip file {src}");
             }
             zip_close(zip_file);
         }
@@ -283,7 +283,7 @@ impl std::io::Read for ZipEntry<'_> {
 impl tokio::io::AsyncRead for ZipEntry<'_> {
     fn poll_read(
         self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
         match self.file {
