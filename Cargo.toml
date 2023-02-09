@@ -1,6 +1,6 @@
 [package]
 name = "libzip-sys"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Dicomserver Team"]
 edition = "2021"
 description = "Bindgen bindings to system libzip"
