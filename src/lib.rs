@@ -30,25 +30,59 @@ pub struct ZipEntry<'a> {
 }
 
 pub trait ZipFile {
-    fn add_buffer<B: AsRef<str>>(&self, data: B, filename: &str) -> ZipResult<()>;
-    fn add_file<P: AsRef<Path>, F: AsRef<str>>(&self, src: P, filename: F) -> ZipResult<()>;
+    fn add_buffer<B>(&self, data: B, filename: &str) -> ZipResult<()>
+    where
+        B: AsRef<str>;
+    fn add_file<P, F>(&self, src: P, filename: F) -> ZipResult<()>
+    where
+        P: AsRef<Path>,
+        F: AsRef<str>;
     fn close(&self) -> ZipResult<()>;
     fn entries(&self) -> ZipResult<Vec<ZipEntry>>;
-    fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip>;
+    fn open<P>(file: P, create: bool) -> ZipResult<Zip>
+    where
+        P: AsRef<Path>;
 }
 
 pub trait ZipPack {
     fn pack_file(batch_name: String, src: &str, filename: String);
 }
 
+pub trait ZipFileDelete {
+    fn delete_file<S>(&self, filename: S) -> ZipResult<()>
+    where
+        S: AsRef<str>;
+}
+
 impl Zip {
     pub fn filename(&self) -> &Path {
         self.filename.as_path()
     }
+
+    pub fn get_error(&self, code: c_int) -> ZipResult<()> {
+        if code == 0 {
+            return Ok(());
+        }
+
+        let file = match self.file {
+            None => return Err("Zip file not open".into()),
+            Some(file) => file,
+        };
+
+        let error = unsafe {
+            let error = zip_strerror(file);
+            CStr::from_ptr(error).to_str()?
+        };
+
+        Err(String::from(error).into())
+    }
 }
 
 impl ZipFile for Zip {
-    fn add_buffer<B: AsRef<str>>(&self, data: B, filename: &str) -> ZipResult<()> {
+    fn add_buffer<B>(&self, data: B, filename: &str) -> ZipResult<()>
+    where
+        B: AsRef<str>,
+    {
         let data = data.as_ref();
         let c_filename = CString::new(filename).unwrap();
         match self.file {
@@ -75,7 +109,11 @@ impl ZipFile for Zip {
         }
     }
 
-    fn add_file<P: AsRef<Path>, F: AsRef<str>>(&self, src: P, filename: F) -> ZipResult<()> {
+    fn add_file<P, F>(&self, src: P, filename: F) -> ZipResult<()>
+    where
+        P: AsRef<Path>,
+        F: AsRef<str>,
+    {
         let c_src = CString::new(src.as_ref().to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename.as_ref().to_string()).unwrap();
 
@@ -150,7 +188,10 @@ impl ZipFile for Zip {
         }
     }
 
-    fn open<P: AsRef<Path>>(file: P, create: bool) -> ZipResult<Zip> {
+    fn open<P>(file: P, create: bool) -> ZipResult<Zip>
+    where
+        P: AsRef<Path>,
+    {
         let file = file.as_ref();
         let zip_file;
         let location: &str = file.to_str().unwrap();
@@ -219,6 +260,47 @@ impl ZipPack for Zip {
             }
             zip_close(zip_file);
         }
+    }
+}
+
+impl ZipFileDelete for Zip {
+    fn delete_file<S>(&self, filename: S) -> ZipResult<()>
+    where
+        S: AsRef<str>,
+    {
+        let file = match self.file {
+            None => return Err("No zip is open".into()),
+            Some(file) => file,
+        };
+
+        let filename = CString::new(filename.as_ref())?;
+
+        let file_stat = zip_stat_t {
+            valid: 0,
+            name: CString::new("")?.as_ptr(),
+            index: 0,
+            size: 0,
+            comp_size: 0,
+            mtime: 0,
+            crc: 0,
+            comp_method: 0,
+            encryption_method: 0,
+            flags: 0,
+        };
+        let file_stat = Box::new(file_stat);
+        let file_stat = Box::into_raw(file_stat);
+
+        let file_stat = unsafe {
+            zip_stat_init(file_stat);
+            let result = zip_stat(file, filename.as_ptr(), ZIP_FL_ENC_GUESS, file_stat);
+            self.get_error(result)?;
+            Box::from_raw(file_stat)
+        };
+
+        let result = unsafe { zip_delete(file, file_stat.index) };
+        self.get_error(result)?;
+
+        Ok(())
     }
 }
 
