@@ -17,6 +17,8 @@ fn build_libzip() {
     config.define("BUILD_EXAMPLES", "OFF");
     config.define("BUILD_DOC", "OFF");
     config.pic(true);
+    config.register_dep("ssl");
+    config.register_dep("crypto");
     config.register_dep("z");
 
     #[cfg(feature = "static")]
@@ -25,18 +27,27 @@ fn build_libzip() {
         config.define("ENABLE_LZMA", "OFF");
         config.define("ENABLE_ZSTD", "OFF");
         config.define("BUILD_SHARED_LIBS", "OFF");
+        config.define("OPENSSL_ROOT_DIR", env::var("DEP_OPENSSL_ROOT").unwrap());
     }
+
+    println!("Configuring and compiling zip");
+    let dst = config.build();
+
+    println!("cargo:rustc-link-search=native={}/lib", dst.display());
 
     #[cfg(feature = "static")]
     {
-        println!("Configuring and compiling zip");
-        let dst = config.build();
-
-        println!("cargo:rustc-link-search=native={}/lib", dst.display());
+        println!(
+            "cargo:rustc-link-search={}/lib",
+            env::var("DEP_OPENSSL_ROOT").unwrap()
+        );
         println!(
             "cargo:rustc-link-search={}/lib",
             env::var("DEP_Z_ROOT").unwrap()
         );
+
+        println!("cargo:rustc-link-lib=static=ssl");
+        println!("cargo:rustc-link-lib=static=crypto");
 
         #[cfg(all(windows, target_env = "gnu"))]
         println!("cargo:rustc-link-lib=static=zlib");
@@ -59,6 +70,8 @@ fn build_libzip() {
 
     #[cfg(not(feature = "static"))]
     {
+        println!("cargo:rustc-link-lib=ssl");
+        println!("cargo:rustc-link-lib=crypto");
         println!("cargo:rustc-link-lib=z");
         println!("cargo:rustc-link-lib=zip");
 
