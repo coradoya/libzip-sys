@@ -27,6 +27,7 @@ pub struct ZipEntry<'a> {
     zip_file: &'a Zip,
     file: Option<*mut zip_file_t>,
     name: String,
+    is_open: bool,
 }
 
 pub trait ZipFile {
@@ -174,6 +175,7 @@ impl ZipFile for Zip {
                             name: String::from(name),
                             zip_file: self,
                             file: None,
+                            is_open: false,
                         };
                         entries.push(entry);
                     }
@@ -306,10 +308,15 @@ impl ZipFileDelete for Zip {
 
 impl ZipEntry<'_> {
     pub fn close(&mut self) {
+        if !self.is_open {
+            return;
+        }
+
         if let Some(file) = self.file {
             unsafe {
                 zip_fclose(file);
             }
+            self.is_open = false;
         }
     }
 
@@ -328,6 +335,7 @@ impl ZipEntry<'_> {
                     Err("Unable to open file in zip".into())
                 } else {
                     self.file = Some(file);
+                    self.is_open = true;
 
                     Ok(())
                 }
