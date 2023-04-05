@@ -39,6 +39,7 @@ pub trait ZipFile {
     fn filename(&self) -> &Path;
     fn get_error(&self, code: i64) -> ZipResult<()>;
     fn open(&mut self, file: &Path, create: bool) -> ZipResult<()>;
+    fn get_entry(&self, entry_name: &str) -> Option<Box<dyn ZipEntry + '_>>;
 }
 
 pub trait ZipEntry: std::io::Read {
@@ -252,6 +253,13 @@ impl ZipFile for Zip {
                 Ok(())
             }
         }
+    }
+
+    fn get_entry(&self, entry_name: &str) -> Option<Box<dyn ZipEntry + '_>> {
+        self.entries()
+            .unwrap_or_else(|_| vec![])
+            .into_iter()
+            .find(|entry| entry.name().eq(entry_name))
     }
 }
 
