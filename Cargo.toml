@@ -13,7 +13,7 @@ openssl-sys = { version = "0.9", optional = true }
 tokio = { version = "1", default-features = false }
 
 [build-dependencies]
-bindgen = "0.64.0"
+bindgen = "*"
 cmake = "0.1"
 
 [features]

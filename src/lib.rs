@@ -8,7 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
 use std::error::Error;
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_uint, c_void, CStr, CString};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -218,16 +218,16 @@ impl ZipFile for Zip {
         let location: &str = file.to_str().unwrap();
         let c_src = CString::new(location)?;
         unsafe {
-            let zip_file_err: *mut c_int = null_mut();
+            let mut zip_file_err = 0i32;
             let flags = if create {
                 ZIP_CHECKCONS as c_int | ZIP_CREATE as c_int
             } else {
                 ZIP_CHECKCONS as c_int
             };
-            zip_file = zip_open(c_src.as_ptr(), flags, zip_file_err);
+            zip_file = zip_open(c_src.as_ptr(), flags, &mut zip_file_err as *mut c_int);
 
             if zip_file.is_null() {
-                match zip_file_err.read() as u32 {
+                match zip_file_err as u32 {
                     ZIP_ER_EXISTS => {
                         Err("The file specified by path exists and ZIP_EXCL is set.".into())
                     }
