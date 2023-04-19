@@ -8,7 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
 use std::error::Error;
-use std::ffi::{c_uint, c_void, CStr, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
