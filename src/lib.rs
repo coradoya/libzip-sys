@@ -219,11 +219,7 @@ impl ZipFile for Zip {
         let c_src = CString::new(location)?;
         unsafe {
             let mut zip_file_err = 0i32;
-            let flags = if create {
-                ZIP_CHECKCONS as c_int | ZIP_CREATE as c_int
-            } else {
-                ZIP_CHECKCONS as c_int
-            };
+            let flags = if create { ZIP_CREATE as c_int } else { 0 };
             zip_file = zip_open(c_src.as_ptr(), flags, &mut zip_file_err as *mut c_int);
 
             if zip_file.is_null() {
