@@ -9,6 +9,7 @@ pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
 use std::error::Error;
 use std::ffi::{c_void, CStr, CString};
+use std::fmt::{Display, Formatter};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -284,6 +285,19 @@ impl ZipPack for Zip {
             }
             zip_close(zip_file);
         }
+    }
+}
+
+impl Display for Zip {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let text = self.filename.to_str().unwrap();
+        write!(f, "{}", text)
+    }
+}
+
+impl Drop for Zip {
+    fn drop(&mut self) {
+        self.close().unwrap();
     }
 }
 
