@@ -61,7 +61,7 @@ fn build_libzip() {
             .clang_arg(format!("-I{}/include/", out_dir().display()))
             .clang_arg(format!("-I{}", dst.as_path().display()))
             .header("wrapper.h")
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .generate()
             .expect("Unable to generate bindings")
             .write_to_file(out_dir().join("bindings.rs"))
