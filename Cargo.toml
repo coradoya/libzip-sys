@@ -8,14 +8,16 @@ build = "build.rs"
 links = "zip"
 
 [dependencies]
-libz-sys = { version = "1", default-features = false, optional = true }
-openssl-sys = { version = "0.9", optional = true }
-tokio = { version = "1", default-features = false }
+libz-sys = { version = "1.1.14", default-features = false, optional = true }
+openssl-sys = { version = "0.9.98", optional = true }
+tokio = { version = "1", optional = true, default-features = false }
 
 [build-dependencies]
 bindgen = "*"
 cmake = "0.1"
+vcpkg = "0.2.15"
 
 [features]
 default = ["static"]
-static = ["openssl-sys/vendored", "libz-sys/zlib-ng"]
+static = ["dep:openssl-sys", "libz-sys/zlib-ng"]
+tokio = ["dep:tokio"]

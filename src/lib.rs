@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-// include!("zip.rs");
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+include!("zip.rs");
 
 pub type ZipResult<T> = Result<T, Box<dyn Error + Sync + Send>>;
 
@@ -12,10 +12,7 @@ use std::ffi::{c_void, CStr, CString};
 use std::fmt::{Display, Formatter};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::ptr::null_mut;
-use std::task::{Context, Poll};
-use tokio::io::ReadBuf;
 
 #[derive(Clone, Debug, Default)]
 pub struct Zip {
@@ -365,12 +362,13 @@ impl std::io::Read for Entry<'_> {
     }
 }
 
+#[cfg(feature = "tokio")]
 impl tokio::io::AsyncRead for Entry<'_> {
     fn poll_read(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
         match self.file {
             Some(zip_file) => {
                 let size = buf.remaining();
@@ -387,9 +385,9 @@ impl tokio::io::AsyncRead for Entry<'_> {
                     buf.put_slice(buffer.as_slice());
                 }
 
-                Poll::Ready(Ok(()))
+                std::task::Poll::Ready(Ok(()))
             }
-            None => Poll::Ready(Err(tokio::io::Error::new(
+            None => std::task::Poll::Ready(Err(tokio::io::Error::new(
                 tokio::io::ErrorKind::Other,
                 "Zip file is not open",
             ))),
