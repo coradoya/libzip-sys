@@ -1,8 +1,4 @@
-use std::{env, path::PathBuf};
-
-fn out_dir() -> PathBuf {
-    PathBuf::from(env::var("OUT_DIR").unwrap())
-}
+use std::env;
 
 fn build_libzip() {
     println!("cargo:rustc-link-lib=zip");
@@ -17,9 +13,8 @@ fn build_libzip() {
     config.define("BUILD_EXAMPLES", "OFF");
     config.define("BUILD_DOC", "OFF");
     config.pic(true);
-    config.register_dep("ssl");
-    config.register_dep("crypto");
     config.register_dep("z");
+    config.always_configure(true);
 
     #[cfg(feature = "static")]
     {
@@ -27,45 +22,23 @@ fn build_libzip() {
         config.define("ENABLE_LZMA", "OFF");
         config.define("ENABLE_ZSTD", "OFF");
         config.define("BUILD_SHARED_LIBS", "OFF");
-        config.define("OPENSSL_ROOT_DIR", env::var("DEP_OPENSSL_ROOT").unwrap());
+        if let Ok(root) = env::var("DEP_OPENSSL_ROOT") {
+            config.define("OPENSSL_ROOT_DIR", root);
+        } else if let Ok(root) = env::var("OPENSSL_DIR") {
+            config.define("OPENSSL_ROOT_DIR", root);
+        }
     }
 
     println!("Configuring and compiling zip");
     let dst = config.build();
 
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
+    println!("cargo:include={}/include", dst.display());
 
     #[cfg(feature = "static")]
     {
-        println!(
-            "cargo:rustc-link-search={}/lib",
-            env::var("DEP_OPENSSL_ROOT").unwrap()
-        );
-        println!(
-            "cargo:rustc-link-search={}/lib",
-            env::var("DEP_Z_ROOT").unwrap()
-        );
-
-        println!("cargo:rustc-link-lib=static=ssl");
-        println!("cargo:rustc-link-lib=static=crypto");
-
-        #[cfg(all(windows, target_env = "gnu"))]
-        println!("cargo:rustc-link-lib=static=zlib");
-
-        #[cfg(not(all(windows, target_env = "gnu")))]
         println!("cargo:rustc-link-lib=static=z");
-
         println!("cargo:rustc-link-lib=static=zip");
-
-        bindgen::Builder::default()
-            .clang_arg(format!("-I{}/include/", out_dir().display()))
-            .clang_arg(format!("-I{}", dst.as_path().display()))
-            .header("wrapper.h")
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-            .generate()
-            .expect("Unable to generate bindings")
-            .write_to_file(out_dir().join("bindings.rs"))
-            .expect("Couldn't write bindings!");
     }
 
     #[cfg(not(feature = "static"))]
@@ -74,17 +47,22 @@ fn build_libzip() {
         println!("cargo:rustc-link-lib=crypto");
         println!("cargo:rustc-link-lib=z");
         println!("cargo:rustc-link-lib=zip");
-
-        bindgen::Builder::default()
-            .header("wrapper.h")
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
-            .generate()
-            .expect("Unable to generate bindings")
-            .write_to_file(out_dir().join("bindings.rs"))
-            .expect("Couldn't write bindings!");
     }
 }
 
+fn use_vcpkg() {
+    vcpkg::Config::new()
+        .emit_includes(true)
+        .find_package("libzip")
+        .unwrap();
+}
+
 fn main() {
-    build_libzip();
+    let target = env::var("TARGET").unwrap_or_default();
+
+    if target.contains("msvc") {
+        use_vcpkg();
+    } else {
+        build_libzip();
+    }
 }
