@@ -20,6 +20,6 @@ default = ["static"]
 static = []
 tokio = ["dep:tokio"]
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 libz-sys = { version = "1.1.14", default-features = false, optional= false, features = ["zlib-ng"] }
 openssl-sys = { version = "0.9.98", optional = false }
