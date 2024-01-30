@@ -14,44 +14,34 @@ use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 
+#[cfg_attr(feature = "faux", faux::create)]
 #[derive(Clone, Debug, Default)]
-pub struct Zip {
+pub struct ZipFile {
     file: Option<*mut zip_t>,
     filename: PathBuf,
 }
 
+#[cfg_attr(feature = "faux", faux::create)]
 #[derive(Debug)]
-pub struct Entry<'a> {
-    zip_file: &'a Zip,
+pub struct ZipEntry {
     file: Option<*mut zip_file_t>,
     name: String,
     is_open: bool,
 }
 
-pub trait ZipFile {
-    fn add_buffer(&self, data: &str, filename: &str) -> ZipResult<()>;
-    fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()>;
-    fn close(&self) -> ZipResult<()>;
-    fn delete_file(&self, filename: &str) -> ZipResult<()>;
-    fn entries(&self) -> ZipResult<Vec<Box<dyn ZipEntry + '_>>>;
-    fn filename(&self) -> &Path;
-    fn get_error(&self, code: i64) -> ZipResult<()>;
-    fn open(&mut self, file: &Path, create: bool) -> ZipResult<()>;
-    fn get_entry(&self, entry_name: &str) -> Option<Box<dyn ZipEntry + '_>>;
-}
-
-pub trait ZipEntry: std::io::Read {
-    fn close(&mut self);
-    fn name(&self) -> String;
-    fn open(&mut self) -> ZipResult<()>;
-}
+// pub trait ZipEntry: std::io::Read {
+//     fn close(&mut self);
+//     fn name(&self) -> String;
+//     fn open(&mut self) -> ZipResult<()>;
+// }
 
 pub trait ZipPack {
     fn pack_file(batch_name: String, src: &str, filename: String);
 }
 
-impl ZipFile for Zip {
-    fn add_buffer(&self, data: &str, filename: &str) -> ZipResult<()> {
+#[cfg_attr(feature = "faux", faux::methods)]
+impl ZipFile {
+    pub fn add_buffer(&self, data: &str, filename: &str) -> ZipResult<()> {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => unsafe {
@@ -77,7 +67,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()> {
+    pub fn add_file(&self, src: &Path, filename: &str) -> ZipResult<()> {
         let c_src = CString::new(src.to_str().unwrap()).unwrap();
         let c_filename = CString::new(filename).unwrap();
 
@@ -103,7 +93,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn close(&self) -> ZipResult<()> {
+    pub fn close(&self) -> ZipResult<()> {
         match self.file {
             Some(zip_file) => unsafe {
                 let result = zip_close(zip_file);
@@ -121,7 +111,7 @@ impl ZipFile for Zip {
         }
     }
 
-    fn delete_file(&self, filename: &str) -> ZipResult<()> {
+    pub fn delete_file(&self, filename: &str) -> ZipResult<()> {
         let file = match self.file {
             None => return Err("No zip is open".into()),
             Some(file) => file,
@@ -157,7 +147,7 @@ impl ZipFile for Zip {
         Ok(())
     }
 
-    fn entries(&self) -> ZipResult<Vec<Box<dyn ZipEntry + '_>>> {
+    pub fn entries(&self) -> ZipResult<Vec<ZipEntry>> {
         if let Some(zip_file) = self.file {
             let num_entries = unsafe { zip_get_num_entries(zip_file, 0) };
 
@@ -170,12 +160,7 @@ impl ZipFile for Zip {
                     };
 
                     if let Ok(name) = name {
-                        let entry: Box<dyn ZipEntry> = Box::new(Entry {
-                            name: String::from(name),
-                            zip_file: self,
-                            file: None,
-                            is_open: false,
-                        });
+                        let entry = ZipEntry::new(None, name, false);
                         entries.push(entry);
                     }
                 }
@@ -189,11 +174,40 @@ impl ZipFile for Zip {
         }
     }
 
-    fn filename(&self) -> &Path {
+    pub fn filename(&self) -> &Path {
         self.filename.as_path()
     }
 
-    fn get_error(&self, code: i64) -> ZipResult<()> {
+    pub fn get_entry(&self, entry_name: &str, open: bool) -> Option<ZipEntry> {
+        let Some(entry) = self
+            .entries()
+            .unwrap_or_else(|_| vec![])
+            .into_iter()
+            .find(|entry| entry.name().eq(entry_name))
+        else {
+            return None;
+        };
+
+        if open {
+            let Ok(filename) = CString::new(entry.name()) else {
+                return None;
+            };
+
+            let zip_file = self.file?;
+            let file = unsafe { zip_fopen(zip_file, filename.as_ptr(), ZIP_FL_ENC_GUESS) };
+
+            if file.is_null() {
+                println!("Unable to open file in zip: {}", entry.name());
+                None
+            } else {
+                Some(ZipEntry::new(Some(file), &entry.name(), true))
+            }
+        } else {
+            Some(entry)
+        }
+    }
+
+    pub fn get_error(&self, code: i64) -> ZipResult<()> {
         if code == 0 {
             return Ok(());
         }
@@ -211,10 +225,10 @@ impl ZipFile for Zip {
         Err(String::from(error).into())
     }
 
-    fn open(&mut self, file: &Path, create: bool) -> ZipResult<()> {
+    pub fn open(file: &Path, create: bool) -> Result<Self, String> {
         let zip_file;
         let location: &str = file.to_str().unwrap();
-        let c_src = CString::new(location)?;
+        let c_src = CString::new(location).map_err(|error| error.to_string())?;
         unsafe {
             let mut zip_file_err = 0i32;
             let flags = if create { ZIP_CREATE as c_int } else { 0 };
@@ -241,24 +255,15 @@ impl ZipFile for Zip {
                     _ => Err("Unexpected error while trying to open the zip".into()),
                 }
             } else {
-                self.file = Some(zip_file);
-                self.filename = file.into();
-
-                Ok(())
+                Ok(Self {
+                    file: Some(zip_file),
+                    filename: PathBuf::from(file),
+                })
             }
         }
     }
 
-    fn get_entry(&self, entry_name: &str) -> Option<Box<dyn ZipEntry + '_>> {
-        self.entries()
-            .unwrap_or_else(|_| vec![])
-            .into_iter()
-            .find(|entry| entry.name().eq(entry_name))
-    }
-}
-
-impl ZipPack for Zip {
-    fn pack_file(batch_name: String, src: &str, filename: String) {
+    pub fn pack_file(batch_name: String, src: &str, filename: String) {
         let c_batch_name = CString::new(batch_name).unwrap();
         let c_src = CString::new(src).unwrap();
         let c_filename = CString::new(filename).unwrap();
@@ -285,21 +290,33 @@ impl ZipPack for Zip {
     }
 }
 
-impl Display for Zip {
+#[cfg_attr(feature = "faux", faux::methods)]
+impl Display for ZipFile {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let text = self.filename.to_str().unwrap();
         write!(f, "{}", text)
     }
 }
 
-impl Drop for Zip {
+impl Drop for ZipFile {
     fn drop(&mut self) {
-        self.close().unwrap();
+        if let Err(error) = self.close() {
+            println!("Unable to close zip file: {:?}", error);
+        }
     }
 }
 
-impl ZipEntry for Entry<'_> {
-    fn close(&mut self) {
+#[cfg_attr(feature = "faux", faux::methods)]
+impl ZipEntry {
+    pub fn new(file: Option<*mut zip_file_t>, name: &str, is_open: bool) -> Self {
+        Self {
+            file,
+            name: name.to_string(),
+            is_open,
+        }
+    }
+
+    pub fn close(&mut self) {
         if !self.is_open {
             return;
         }
@@ -312,32 +329,13 @@ impl ZipEntry for Entry<'_> {
         }
     }
 
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn open(&mut self) -> ZipResult<()> {
-        match self.zip_file.file {
-            Some(zip_file) => {
-                let fname = CString::new(self.name())?;
-
-                let file = unsafe { zip_fopen(zip_file, fname.as_ptr(), ZIP_FL_ENC_GUESS) };
-
-                if file.is_null() {
-                    Err("Unable to open file in zip".into())
-                } else {
-                    self.file = Some(file);
-                    self.is_open = true;
-
-                    Ok(())
-                }
-            }
-            None => Err("Zip file is not valid. Was it opened?".into()),
-        }
+    pub fn name(&self) -> String {
+        self.name.to_string()
     }
 }
 
-impl std::io::Read for Entry<'_> {
+#[cfg_attr(feature = "faux", faux::methods)]
+impl std::io::Read for ZipEntry {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self.file {
             Some(zip_file) => {
@@ -362,8 +360,9 @@ impl std::io::Read for Entry<'_> {
     }
 }
 
+#[cfg_attr(feature = "faux", faux::methods)]
 #[cfg(feature = "tokio")]
-impl tokio::io::AsyncRead for Entry<'_> {
+impl tokio::io::AsyncRead for ZipEntry {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
@@ -395,7 +394,7 @@ impl tokio::io::AsyncRead for Entry<'_> {
     }
 }
 
-impl Drop for Entry<'_> {
+impl Drop for ZipEntry {
     fn drop(&mut self) {
         self.close();
     }
