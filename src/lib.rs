@@ -41,7 +41,7 @@ pub trait ZipPack {
 
 #[cfg_attr(feature = "faux", faux::methods)]
 impl ZipFile {
-    pub fn add_buffer(&self, data: &str, filename: &str) -> ZipResult<()> {
+    pub fn add_buffer(&self, data: &[u8], filename: &str) -> ZipResult<()> {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => unsafe {
@@ -93,13 +93,16 @@ impl ZipFile {
         }
     }
 
-    pub fn close(&self) -> ZipResult<()> {
+    pub fn close(&mut self) -> ZipResult<()> {
         match self.file {
             Some(zip_file) => unsafe {
                 let result = zip_close(zip_file);
 
                 match result {
-                    0 => Ok(()),
+                    0 => {
+                        self.file = None;
+                        Ok(())
+                    }
                     _ => {
                         let msg = zip_strerror(zip_file);
                         let msg = CStr::from_ptr(msg).to_str()?;
@@ -107,7 +110,7 @@ impl ZipFile {
                     }
                 }
             },
-            None => Err("No file to close".into()),
+            None => Ok(()),
         }
     }
 

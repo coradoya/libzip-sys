@@ -18,6 +18,9 @@ fn build_libzip() {
 
     #[cfg(feature = "static")]
     {
+        #[cfg(not(target_os = "windows"))]
+        config.register_dep("ssl");
+
         config.define("ENABLE_BZIP2", "OFF");
         config.define("ENABLE_LZMA", "OFF");
         config.define("ENABLE_ZSTD", "OFF");

@@ -26,4 +26,4 @@ tokio = ["dep:tokio"]
 libz-sys = { version = "1.1.14", default-features = false, optional = false, features = [
     "zlib-ng",
 ] }
-openssl-sys = { version = "0.9.98", optional = false }
+openssl-sys = { version = "0.9.98", features = ["vendored"], optional = false }
