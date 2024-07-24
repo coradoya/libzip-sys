@@ -40,8 +40,8 @@ pub trait ZipPack {
 }
 
 #[cfg_attr(feature = "faux", faux::methods)]
-impl ZipFile {
-    pub fn add_buffer(&self, data: &[u8], filename: &str) -> ZipResult<()> {
+impl<'a> ZipFile {
+    pub fn add_buffer(&self, data: &'a [u8], filename: &str) -> ZipResult<()> {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => unsafe {
@@ -182,14 +182,11 @@ impl ZipFile {
     }
 
     pub fn get_entry(&self, entry_name: &str, open: bool) -> Option<ZipEntry> {
-        let Some(entry) = self
+        let entry = self
             .entries()
             .unwrap_or_else(|_| vec![])
             .into_iter()
-            .find(|entry| entry.name().eq(entry_name))
-        else {
-            return None;
-        };
+            .find(|entry| entry.name().eq(entry_name))?;
 
         if open {
             let Ok(filename) = CString::new(entry.name()) else {
