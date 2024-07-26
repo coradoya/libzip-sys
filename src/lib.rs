@@ -120,29 +120,7 @@ impl<'a> ZipFile {
             Some(file) => file,
         };
 
-        let filename = CString::new(filename)?;
-
-        let file_stat = zip_stat_t {
-            valid: 0,
-            name: CString::new("")?.as_ptr(),
-            index: 0,
-            size: 0,
-            comp_size: 0,
-            mtime: 0,
-            crc: 0,
-            comp_method: 0,
-            encryption_method: 0,
-            flags: 0,
-        };
-        let file_stat = Box::new(file_stat);
-        let file_stat = Box::into_raw(file_stat);
-
-        let file_stat = unsafe {
-            zip_stat_init(file_stat);
-            let result = zip_stat(file, filename.as_ptr(), ZIP_FL_ENC_GUESS, file_stat);
-            self.get_error(result as i64)?;
-            Box::from_raw(file_stat)
-        };
+        let file_stat = self.file_stat(filename)?;
 
         let result = unsafe { zip_delete(file, file_stat.index) };
         self.get_error(result as i64)?;
@@ -287,6 +265,38 @@ impl<'a> ZipFile {
             }
             zip_close(zip_file);
         }
+    }
+
+    pub fn file_stat(&self, filename: &str) -> ZipResult<Box<zip_stat>> {
+        let file = match self.file {
+            None => return Err("No zip is open".into()),
+            Some(file) => file,
+        };
+
+        let file_stat = zip_stat_t {
+            valid: 0,
+            name: CString::new("")?.as_ptr(),
+            index: 0,
+            size: 0,
+            comp_size: 0,
+            mtime: 0,
+            crc: 0,
+            comp_method: 0,
+            encryption_method: 0,
+            flags: 0,
+        };
+        let file_stat = Box::new(file_stat);
+        let file_stat = Box::into_raw(file_stat);
+        let filename = CString::new(filename)?;
+
+        let stat = unsafe {
+            zip_stat_init(file_stat);
+            let result = zip_stat(file, filename.as_ptr(), ZIP_FL_ENC_GUESS, file_stat);
+            self.get_error(result as i64)?;
+            Box::from_raw(file_stat)
+        };
+
+        Ok(stat)
     }
 }
 
