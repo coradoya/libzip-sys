@@ -273,9 +273,10 @@ impl<'a> ZipFile {
             Some(file) => file,
         };
 
+        let name = CString::new("")?;
         let file_stat = zip_stat_t {
             valid: 0,
-            name: CString::new("")?.as_ptr(),
+            name: name.as_ptr(),
             index: 0,
             size: 0,
             comp_size: 0,
