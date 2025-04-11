@@ -5,6 +5,7 @@ fn build_libzip() {
     println!("cargo:rerun-if-changed=wrapper.h");
 
     let mut config = cmake::Config::new("libzip");
+    config.define("CMAKE_LINK_DEPENDS_USE_LINKER", "0");
     config.define("ENABLE_NETTLE", "OFF");
     config.define("ENABLE_GNUTLS", "OFF");
     config.define("ENABLE_MBEDTLS", "OFF");
