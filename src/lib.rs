@@ -40,8 +40,8 @@ pub trait ZipPack {
 }
 
 #[cfg_attr(feature = "faux", faux::methods)]
-impl<'a> ZipFile {
-    pub fn add_buffer(&self, data: &'a [u8], filename: &str) -> ZipResult<()> {
+impl ZipFile {
+    pub fn add_buffer(&self, data: &[u8], filename: &str) -> ZipResult<()> {
         let c_filename = CString::new(filename).unwrap();
         match self.file {
             Some(zip_file) => unsafe {
