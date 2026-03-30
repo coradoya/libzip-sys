@@ -1,6 +1,8 @@
 use std::env;
 
-fn build_libzip() {
+fn main() {
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+
     println!("cargo:rustc-link-lib=zip");
     println!("cargo:rerun-if-changed=wrapper.h");
 
@@ -17,15 +19,20 @@ fn build_libzip() {
     config.register_dep("z");
     config.always_configure(true);
 
-    #[cfg(feature = "static")]
-    {
-        #[cfg(not(target_os = "windows"))]
-        config.register_dep("ssl");
+    if env::var("CARGO_FEATURE_STATIC").is_ok() {
+        if target_os != "windows" {
+            config.register_dep("ssl");
+        }
 
         config.define("ENABLE_BZIP2", "OFF");
         config.define("ENABLE_LZMA", "OFF");
         config.define("ENABLE_ZSTD", "OFF");
         config.define("BUILD_SHARED_LIBS", "OFF");
+        config.define(
+            "ENABLE_OPENSSL",
+            if target_os == "windows" { "OFF" } else { "ON" },
+        );
+
         if let Ok(root) = env::var("DEP_OPENSSL_ROOT") {
             config.define("OPENSSL_ROOT_DIR", root);
         } else if let Ok(root) = env::var("OPENSSL_DIR") {
@@ -39,34 +46,19 @@ fn build_libzip() {
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
     println!("cargo:include={}/include", dst.display());
 
-    #[cfg(feature = "static")]
-    {
-        println!("cargo:rustc-link-lib=static=z");
+    if env::var("CARGO_FEATURE_STATIC").is_ok() {
+        if target_os == "windows" {
+            println!("cargo:rustc-link-lib=static=zlibstatic");
+        } else {
+            println!("cargo:rustc-link-lib=static=z");
+        }
         println!("cargo:rustc-link-lib=static=zip");
-    }
-
-    #[cfg(not(feature = "static"))]
-    {
-        println!("cargo:rustc-link-lib=ssl");
-        println!("cargo:rustc-link-lib=crypto");
+    } else {
+        if target_os != "windows" {
+            println!("cargo:rustc-link-lib=ssl");
+            println!("cargo:rustc-link-lib=crypto");
+        }
         println!("cargo:rustc-link-lib=z");
         println!("cargo:rustc-link-lib=zip");
-    }
-}
-
-fn use_vcpkg() {
-    vcpkg::Config::new()
-        .emit_includes(true)
-        .find_package("libzip")
-        .unwrap();
-}
-
-fn main() {
-    let target = env::var("TARGET").unwrap_or_default();
-
-    if target.contains("msvc") {
-        use_vcpkg();
-    } else {
-        build_libzip();
     }
 }
